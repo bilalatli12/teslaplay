@@ -1,0 +1,16 @@
+{
+  "name": "teslaplay",
+  "version": "1.0.0",
+  "description": "YouTube player for Tesla Model Y - streams video through server proxy",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "yt-dlp-wrap": "^2.3.12",
+    "ytdlp-nodejs": "^3.4.4"
+  }
+}

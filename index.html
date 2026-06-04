@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeslaPlay — YouTube Player for Tesla</title>
+    <meta name="description" content="Tesla Model Y için optimize edilmiş YouTube video oynatıcı. Sürüş sırasında en sevdiğiniz videoları izleyin.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Ambient Background -->
+    <div class="ambient-bg">
+        <div class="ambient-orb orb-1"></div>
+        <div class="ambient-orb orb-2"></div>
+        <div class="ambient-orb orb-3"></div>
+    </div>
+
+    <!-- Header -->
+    <header id="app-header">
+        <div class="header-left">
+            <div class="logo" id="logo-btn">
+                <svg class="logo-icon" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M50 10 L50 90 M30 25 L50 10 L70 25" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="50" cy="50" r="38" stroke="currentColor" stroke-width="3" opacity="0.3"/>
+                </svg>
+                <span class="logo-text">TeslaPlay</span>
+            </div>
+        </div>
+
+        <div class="header-center">
+            <div class="search-container" id="search-container">
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="m21 21-4.35-4.35"/>
+                </svg>
+                <input type="text" id="search-input" placeholder="YouTube'da ara..." autocomplete="off">
+                <button class="search-clear" id="search-clear" aria-label="Aramayı temizle">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6 6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+                <button class="search-btn" id="search-btn" aria-label="Ara">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="header-right">
+            <button class="icon-btn" id="theme-toggle" aria-label="Tema değiştir">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+            </button>
+            <button class="icon-btn" id="fullscreen-btn" aria-label="Tam ekran">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="main-content">
+        <!-- Hero / Welcome Section -->
+        <section class="hero-section" id="hero-section">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    <span class="hero-accent">Tesla</span>Play
+                </h1>
+                <p class="hero-subtitle">Model Y'niz için tasarlanmış YouTube deneyimi</p>
+                <div class="hero-search">
+                    <input type="text" id="hero-search-input" placeholder="Ne izlemek istersiniz?">
+                    <button id="hero-search-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="m21 21-4.35-4.35"/>
+                        </svg>
+                        Ara
+                    </button>
+                </div>
+            </div>
+            <div class="hero-car">
+                <div class="car-glow"></div>
+            </div>
+        </section>
+
+        <!-- Quick Categories -->
+        <section class="categories-section" id="categories-section">
+            <div class="categories-scroll">
+                <button class="category-chip active" data-category="trending">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                    Trend
+                </button>
+                <button class="category-chip" data-category="music">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                    Müzik
+                </button>
+                <button class="category-chip" data-category="tesla">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M7 5l5-3 5 3"/></svg>
+                    Tesla
+                </button>
+                <button class="category-chip" data-category="technology">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                    Teknoloji
+                </button>
+                <button class="category-chip" data-category="gaming">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 11h.01M18 13h.01"/></svg>
+                    Oyun
+                </button>
+                <button class="category-chip" data-category="news">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/></svg>
+                    Haberler
+                </button>
+                <button class="category-chip" data-category="sports">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                    Spor
+                </button>
+                <button class="category-chip" data-category="comedy">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                    Komedi
+                </button>
+                <button class="category-chip" data-category="travel">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg>
+                    Seyahat
+                </button>
+            </div>
+        </section>
+
+        <!-- Player Section (Hidden by default) -->
+        <section class="player-section" id="player-section" style="display:none;">
+            <div class="player-wrapper">
+                <div class="player-container" id="player-container">
+                    <div id="youtube-player"></div>
+                </div>
+                <div class="player-info">
+                    <h2 class="player-title" id="player-title">Video Başlığı</h2>
+                    <div class="player-meta">
+                        <span class="player-channel" id="player-channel">Kanal Adı</span>
+                        <span class="player-views" id="player-views"></span>
+                    </div>
+                    <p class="player-description" id="player-description"></p>
+                </div>
+                <button class="player-close" id="player-close" aria-label="Oynatıcıyı kapat">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6 6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+        </section>
+
+        <!-- Video Grid -->
+        <section class="videos-section" id="videos-section">
+            <div class="section-header">
+                <h2 class="section-title" id="section-title">Öne Çıkanlar</h2>
+                <div class="section-actions">
+                    <button class="view-toggle active" id="grid-view-btn" aria-label="Grid görünümü">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                            <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+                        </svg>
+                    </button>
+                    <button class="view-toggle" id="list-view-btn" aria-label="Liste görünümü">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+                            <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
+                            <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="video-grid" id="video-grid">
+                <!-- Videos will be dynamically inserted -->
+            </div>
+            <div class="loading-indicator" id="loading-indicator" style="display:none;">
+                <div class="loader">
+                    <div class="loader-ring"></div>
+                    <div class="loader-ring"></div>
+                    <div class="loader-ring"></div>
+                </div>
+                <p>Videolar yükleniyor...</p>
+            </div>
+            <div class="no-results" id="no-results" style="display:none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                    <path d="M8 11h6"/>
+                </svg>
+                <h3>Sonuç bulunamadı</h3>
+                <p>Farklı anahtar kelimeler deneyebilirsiniz.</p>
+            </div>
+        </section>
+
+        <!-- URL Player Section -->
+        <section class="url-section" id="url-section">
+            <div class="url-container">
+                <h3 class="url-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                    </svg>
+                    YouTube Linki Yapıştır
+                </h3>
+                <div class="url-input-group">
+                    <input type="text" id="url-input" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off">
+                    <button id="url-play-btn">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <polygon points="5 3 19 12 5 21 5 3"/>
+                        </svg>
+                        Oynat
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Favorites Section -->
+        <section class="favorites-section" id="favorites-section" style="display:none;">
+            <div class="section-header">
+                <h2 class="section-title">
+                    <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                    </svg>
+                    Favorilerim
+                </h2>
+            </div>
+            <div class="video-grid" id="favorites-grid">
+                <!-- Favorites will be dynamically inserted -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Bottom Nav (Mobile/Tesla optimized) -->
+    <nav class="bottom-nav" id="bottom-nav">
+        <button class="nav-item active" data-nav="home" id="nav-home">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+            <span>Ana Sayfa</span>
+        </button>
+        <button class="nav-item" data-nav="search" id="nav-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+            </svg>
+            <span>Ara</span>
+        </button>
+        <button class="nav-item" data-nav="favorites" id="nav-favorites">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+            <span>Favoriler</span>
+        </button>
+        <button class="nav-item" data-nav="history" id="nav-history">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+            </svg>
+            <span>Geçmiş</span>
+        </button>
+    </nav>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
