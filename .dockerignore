@@ -1,6 +1,0 @@
-node_modules
-bin
-.git
-.gitignore
-.dockerignore
-*.log
