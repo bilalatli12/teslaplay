@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TeslaPlay — Tesla için YouTube</title>
+    <meta name="description" content="Tesla Model Y için tasarlanmış premium YouTube oynatıcı">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+</head>
+<body>
+
+    <!-- Ambient BG -->
+    <div class="ambient">
+        <div class="orb orb-red"></div>
+        <div class="orb orb-blue"></div>
+    </div>
+
+    <!-- ===== HEADER ===== -->
+    <header class="header" id="header">
+        <button class="logo" id="logo">
+            <div class="logo-mark">
+                <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            </div>
+            <span class="logo-label">TeslaPlay</span>
+        </button>
+
+        <div class="search-bar" id="search-bar">
+            <svg class="search-bar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="text" id="search-input" placeholder="YouTube'da ara..." autocomplete="off" spellcheck="false">
+            <button class="search-clear hidden" id="search-clear">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+            <button class="search-go" id="search-go">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </button>
+        </div>
+
+        <div class="header-actions">
+            <select id="quality-sel" title="Video kalitesi">
+                <option value="high">720p</option>
+                <option value="medium" selected>480p</option>
+                <option value="low">360p</option>
+            </select>
+            <button class="hdr-btn" id="fs-btn" title="Tam ekran">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- ===== MAIN ===== -->
+    <main class="main" id="main">
+
+        <!-- ===== PLAYER (hidden) ===== -->
+        <section class="player-wrap" id="player-wrap" style="display:none">
+            <div class="player-box">
+                <div class="video-frame" id="video-frame">
+                    <video id="vid" playsinline autoplay preload="auto"></video>
+                    <canvas id="cvs" style="display:none"></canvas>
+                    
+                    <!-- Custom Player Controls Overlay -->
+                    <div class="custom-controls" id="custom-controls">
+                        <!-- Play/Pause Big Center Button -->
+                        <button class="ctrl-play-center" id="ctrl-play-center">
+                            <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            <svg class="pause-icon hidden" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                        </button>
+                        
+                        <!-- Bottom Controls Bar -->
+                        <div class="controls-bar">
+                            <button class="ctrl-btn" id="ctrl-play-btn">
+                                <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                                <svg class="pause-icon hidden" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                            </button>
+                            
+                            <div class="ctrl-time" id="ctrl-time">00:00 / 00:00</div>
+                            
+                            <!-- Progress Scrubber -->
+                            <div class="ctrl-progress-container" id="ctrl-progress-container">
+                                <div class="ctrl-progress-bar" id="ctrl-progress-bar">
+                                    <div class="ctrl-progress-current" id="ctrl-progress-current"></div>
+                                    <div class="ctrl-progress-handle" id="ctrl-progress-handle"></div>
+                                </div>
+                            </div>
+                            
+                            <button class="ctrl-btn" id="ctrl-mute-btn">
+                                <svg class="volume-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                                <svg class="volume-off hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="vid-loading" id="vid-loading">
+                        <div class="ring-spin"></div>
+                        <span>Video yükleniyor...</span>
+                    </div>
+                </div>
+                <div class="player-detail">
+                    <div class="player-detail-left">
+                        <h2 class="vid-title" id="vid-title"></h2>
+                        <p class="vid-meta"><span class="vid-channel" id="vid-channel"></span> <span class="dot">•</span> <span id="vid-views"></span></p>
+                    </div>
+                    <div class="player-detail-right">
+                        <button class="pill-btn" id="drive-btn" title="Sürüş Modu (Bypass)">
+                            <span class="drive-indicator"></span> Sürüş Modu
+                        </button>
+                        <button class="pill-btn" id="fav-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> Favori</button>
+                        <button class="pill-btn pill-close" id="close-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg> Kapat</button>
+                    </div>
+                </div>
+            </div>
+            <div class="rec-area" id="rec-area" style="display:none">
+                <h3 class="rec-heading">Önerilen Videolar</h3>
+                <div class="card-grid rec-grid" id="rec-grid"></div>
+            </div>
+        </section>
+
+        <!-- ===== HOME ===== -->
+        <section class="home" id="home-sec">
+            <!-- Hero -->
+            <div class="hero">
+                <h1 class="hero-h"><span class="grad">Tesla</span>Play</h1>
+                <p class="hero-p">Model Y'niz için premium YouTube deneyimi</p>
+                <div class="hero-bar">
+                    <input type="text" id="hero-input" placeholder="Ne izlemek istersiniz?" spellcheck="false">
+                    <button id="hero-go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Ara</button>
+                </div>
+            </div>
+
+            <!-- Chips -->
+            <div class="chips" id="chips">
+                <button class="chip on" data-c="trending">🔥 Trend</button>
+                <button class="chip" data-c="music">🎵 Müzik</button>
+                <button class="chip" data-c="gaming">🎮 Oyun</button>
+                <button class="chip" data-c="news">📰 Haber</button>
+                <button class="chip" data-c="tesla">⚡ Tesla</button>
+                <button class="chip" data-c="technology">💻 Teknoloji</button>
+                <button class="chip" data-c="sports">⚽ Spor</button>
+            </div>
+
+            <!-- Grid area -->
+            <h2 class="sec-title" id="sec-title">Trend Videolar 🔥</h2>
+            <div class="card-grid" id="grid"></div>
+            <div class="state-loading" id="s-load" style="display:none"><div class="ring-spin"></div><span>Videolar yükleniyor...</span></div>
+            <div class="state-empty" id="s-empty" style="display:none">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M8 11h6"/></svg>
+                <h3>Sonuç bulunamadı</h3><p>Farklı bir arama deneyin</p>
+            </div>
+            <div class="state-error" id="s-error" style="display:none">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+                <h3>Bir hata oluştu</h3><p id="s-error-msg">Lütfen tekrar deneyin</p>
+            </div>
+        </section>
+
+        <!-- ===== FAVORITES ===== -->
+        <section class="sub-sec" id="fav-sec" style="display:none">
+            <h2 class="sec-title">❤️ Favorilerim</h2>
+            <div class="card-grid" id="fav-grid"></div>
+            <div class="state-empty" id="fav-empty" style="display:none">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                <h3>Henüz favori yok</h3><p>Videolardaki ❤️ ikonuna tıklayarak ekleyin</p>
+            </div>
+        </section>
+
+        <!-- ===== HISTORY ===== -->
+        <section class="sub-sec" id="hist-sec" style="display:none">
+            <h2 class="sec-title">🕐 İzleme Geçmişi</h2>
+            <div class="card-grid" id="hist-grid"></div>
+            <div class="state-empty" id="hist-empty" style="display:none">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <h3>Geçmiş boş</h3><p>İzlediğiniz videolar burada görünecek</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- ===== BOTTOM NAV ===== -->
+    <nav class="bnav" id="bnav">
+        <button class="bnav-item on" data-v="home">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            <span>Ana Sayfa</span>
+        </button>
+        <button class="bnav-item" data-v="search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <span>Ara</span>
+        </button>
+        <button class="bnav-item" data-v="favorites">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            <span>Favoriler</span>
+        </button>
+        <button class="bnav-item" data-v="history">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>Geçmiş</span>
+        </button>
+    </nav>
+
+    <!-- Toast container -->
+    <div class="toasts" id="toasts"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
