@@ -1,6 +1,6 @@
 /**
- * TeslaPlay v2 — Frontend with Canvas Drive-Bypass Mode
- * Connects to yt-dlp powered backend
+ * TeslaPlay v3 — Frontend with Multi-Source Fallback & Canvas Drive-Bypass
+ * Connects to yt-dlp + Invidious powered backend
  */
 (function () {
     'use strict';
@@ -12,9 +12,11 @@
         video: null,
         favs: load('tp_fav', []),
         hist: load('tp_his', []),
-        driveMode: load('tp_dm', false), // Keeps canvas active for bypass
-        startTime: 0,                    // Audio sync start time in seconds
-        videoDuration: 0,                // Total duration in seconds
+        driveMode: load('tp_dm', false),
+        startTime: 0,
+        videoDuration: 0,
+        retryCount: 0,
+        maxRetries: 2,
     };
 
     /* ───── Helpers ───── */
@@ -74,6 +76,7 @@
         sLoad: $('#s-load'), sEmpty: $('#s-empty'), sError: $('#s-error'), sErrorMsg: $('#s-error-msg'),
         favEmpty: $('#fav-empty'), histEmpty: $('#hist-empty'),
         toasts: $('#toasts'),
+        vidLoadMsg: $('#vid-load-msg'),
         
         // Custom Controls DOM
         videoFrame: $('#video-frame'),
@@ -126,7 +129,6 @@
         if (i > -1) { S.favs.splice(i, 1); toast('Favorilerden kaldırıldı'); }
         else { S.favs.unshift(v); toast('Favorilere eklendi ❤️'); }
         save('tp_fav', S.favs);
-        // Update all matching fav buttons
         $$(`[data-fid="${v.id}"]`).forEach(b => {
             const on = isFav(v.id);
             b.classList.toggle('faved', on);
@@ -175,7 +177,6 @@
         if (!canvasLoopActive) return;
         
         if (S.driveMode && D.vid && !D.vid.paused && !D.vid.ended) {
-            // Adjust canvas resolution dynamically based on video stream
             if (D.vid.videoWidth && D.cvs.width !== D.vid.videoWidth) {
                 D.cvs.width = D.vid.videoWidth;
                 D.cvs.height = D.vid.videoHeight;
@@ -215,10 +216,24 @@
         toast(S.driveMode ? 'Sürüş Modu Aktif (Video Canvas Üzerinde Oynatılıyor)' : 'Normal Mod Aktif');
     }
 
+    /* ───── Loading State Messages ───── */
+    const loadingMessages = [
+        'Video yükleniyor...',
+        'Kaynaklar deneniyor...',
+        'Alternatif sunucu deneniyor...',
+        'Son deneme yapılıyor...',
+    ];
+
+    function updateLoadingMsg(msg) {
+        const el = D.vidLoadMsg;
+        if (el) el.textContent = msg;
+    }
+
     /* ───── Playback ───── */
     async function playVideo(v, startTime = 0) {
         S.video = v;
         S.startTime = startTime;
+        S.retryCount = 0;
 
         // Establish total duration
         if (v.durationSeconds) {
@@ -238,37 +253,19 @@
         D.vidChannel.textContent = v.channel || '';
         D.vidViews.textContent = v.views || '';
         D.vidLoad.classList.remove('hidden');
+        updateLoadingMsg(loadingMessages[0]);
         syncPlayerFav();
 
-        // Scroll and add to history only on initial start, not on seeks
         if (startTime === 0) {
             window.scrollTo({ top: 0, behavior: 'smooth' });
             addHist(v);
         }
 
-        const q = D.qualSel.value;
-        const streamUrl = `/api/stream/${v.id}?q=${q}&t=${startTime}`;
-
-        D.vid.src = streamUrl;
-        D.vid.load();
+        loadStream(v, startTime);
 
         updateDriveModeUI();
 
-        const hideLoad = () => D.vidLoad.classList.add('hidden');
-
-        D.vid.oncanplay = () => {
-            hideLoad();
-            D.vid.play().catch(() => {});
-        };
-
-        D.vid.onerror = () => {
-            hideLoad();
-            toast('Video yüklenemedi — tekrar deneyin', false);
-        };
-
-        // Timeout safety
-        setTimeout(() => { if (!D.vidLoad.classList.contains('hidden')) hideLoad(); }, 15000);
-
+        // Fetch full info in background
         try {
             const info = await apiInfo(v.id);
             if (info.title) D.vidTitle.textContent = info.title;
@@ -276,6 +273,48 @@
             if (info.views) D.vidViews.textContent = info.views;
             if (info.durationSeconds) S.videoDuration = info.durationSeconds;
         } catch {}
+    }
+
+    function loadStream(v, startTime) {
+        const q = D.qualSel.value;
+        const streamUrl = `/api/stream/${v.id}?q=${q}&t=${startTime}`;
+
+        D.vid.src = streamUrl;
+        D.vid.load();
+
+        D.vid.oncanplay = () => {
+            D.vidLoad.classList.add('hidden');
+            D.vid.play().catch(() => {});
+        };
+
+        D.vid.onerror = () => {
+            S.retryCount++;
+            if (S.retryCount <= S.maxRetries && S.video && S.video.id === v.id) {
+                // Auto-retry with a different quality or wait
+                console.log(`Video error, retry ${S.retryCount}/${S.maxRetries}`);
+                updateLoadingMsg(loadingMessages[Math.min(S.retryCount, loadingMessages.length - 1)]);
+                
+                // Wait a bit then retry
+                setTimeout(() => {
+                    if (S.video && S.video.id === v.id) {
+                        // Try lower quality on retry
+                        const qualities = ['high', 'medium', 'low'];
+                        const currentIdx = qualities.indexOf(q);
+                        const retryQ = qualities[Math.min(currentIdx + S.retryCount, qualities.length - 1)];
+                        
+                        const retryUrl = `/api/stream/${v.id}?q=${retryQ}&t=${startTime}&retry=${S.retryCount}`;
+                        D.vid.src = retryUrl;
+                        D.vid.load();
+                    }
+                }, 2000 * S.retryCount);
+            } else {
+                D.vidLoad.classList.add('hidden');
+                toast('Video yüklenemedi — farklı bir video deneyin', false);
+            }
+        };
+
+        // Timeout safety - longer for multi-source fallback
+        setTimeout(() => { if (!D.vidLoad.classList.contains('hidden')) D.vidLoad.classList.add('hidden'); }, 30000);
     }
 
     function closePlayer() {
@@ -290,7 +329,7 @@
 
     /* ───── Custom Controls Events & Synchronization ───── */
     let controlsTimer;
-    let dragging = false; // Tracks if user is dragging progress bar
+    let dragging = false;
 
     function showControlsOverlay() {
         D.customControls.classList.add('active');
@@ -305,12 +344,10 @@
     function syncControlsUI() {
         const isPaused = D.vid.paused;
         
-        // Play/Pause Icons Sync
         $$('.play-icon').forEach(el => el.classList.toggle('hidden', !isPaused));
         $$('.pause-icon').forEach(el => el.classList.toggle('hidden', isPaused));
         D.ctrlPlayCenter.classList.toggle('hidden', !isPaused && !D.customControls.classList.contains('active'));
 
-        // Time Progress Sync (Skip if actively dragging scrubber)
         if (!dragging) {
             const current = S.startTime + (D.vid.currentTime || 0);
             const total = S.videoDuration || D.vid.duration || 0;
@@ -323,14 +360,12 @@
             }
         }
 
-        // Mute / Speaker Icon Sync
         const isMuted = D.vid.muted;
         $('.volume-on').classList.toggle('hidden', isMuted);
         $('.volume-off').classList.toggle('hidden', !isMuted);
     }
 
     function setupCustomControls() {
-        // Toggle play/pause on click
         const playToggle = () => {
             if (D.vid.paused) {
                 D.vid.play();
@@ -343,14 +378,12 @@
         D.ctrlPlayCenter.onclick = playToggle;
         D.ctrlPlayBtn.onclick = playToggle;
 
-        // Toggle mute
         D.ctrlMuteBtn.onclick = () => {
             D.vid.muted = !D.vid.muted;
             syncControlsUI();
             showControlsOverlay();
         };
 
-        // Click / Drag Scrubber
         let lastRatio = 0;
         const seek = (e) => {
             const rect = D.ctrlProgBar.getBoundingClientRect();
@@ -386,14 +419,12 @@
         window.addEventListener('mouseup', handleDragEnd);
         window.addEventListener('touchend', handleDragEnd);
 
-        // Video DOM events hook
         D.vid.addEventListener('play', syncControlsUI);
         D.vid.addEventListener('pause', syncControlsUI);
         D.vid.addEventListener('timeupdate', syncControlsUI);
         D.vid.addEventListener('volumechange', syncControlsUI);
         D.vid.addEventListener('durationchange', syncControlsUI);
 
-        // Frame interactivity hook (Mouse moves & Taps show controls)
         D.videoFrame.addEventListener('mousemove', showControlsOverlay);
         D.videoFrame.addEventListener('touchstart', showControlsOverlay);
         D.videoFrame.addEventListener('click', (e) => {
@@ -407,7 +438,7 @@
     async function doSearch(q) {
         q = (q || '').trim();
         if (!q) return;
-        if (S.video) closePlayer(); // Auto close the video player so results are visible
+        if (S.video) closePlayer();
         S.view = 'home';
         showView('home');
         D.secTitle.textContent = `"${q}" sonuçları`;
@@ -499,7 +530,7 @@
             else document.exitFullscreen().catch(() => {});
         };
         
-        // Quality selector change listener (Preserves time position)
+        // Quality selector change
         D.qualSel.onchange = () => {
             if (S.video) {
                 const current = S.startTime + (D.vid.currentTime || 0);
@@ -507,7 +538,7 @@
             }
         };
         
-        // Drive mode button trigger
+        // Drive mode button
         D.driveBtn.onclick = toggleDriveMode;
 
         document.onkeydown = e => {
