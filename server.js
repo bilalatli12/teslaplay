@@ -124,6 +124,58 @@ function runYtDlp(args, timeoutMs = 30000) {
 }
 
 // ============================
+// Piped API Instance Pool
+// ============================
+let pipedInstances = [
+    'https://pipedapi.kavin.rocks',
+    'https://pipedapi.r4fo.com',
+    'https://api.piped.projectsegfau.lt',
+    'https://pipedapi.leptons.xyz',
+    'https://pipedapi.in.projectsegfau.lt',
+];
+
+const pipedHealth = new Map();
+let lastPipedRefresh = 0;
+
+async function refreshPipedInstances() {
+    if (Date.now() - lastPipedRefresh < 30 * 60 * 1000) return;
+    lastPipedRefresh = Date.now();
+    
+    try {
+        // Try to fetch instances from kavin.rocks
+        const data = await fetchJSON('https://piped-instances.kavin.rocks/', 8000);
+        if (Array.isArray(data)) {
+            const apis = data
+                .filter(inst => inst.api_url && !inst.cdn)
+                .map(inst => inst.api_url.replace(/\/$/, ''))
+                .slice(0, 10);
+            if (apis.length > 0) {
+                pipedInstances = apis;
+                console.log(`🔄 Refreshed Piped instances: ${apis.length} found`);
+            }
+        }
+    } catch (e) {
+        console.log('⚠️ Could not refresh Piped instances:', e.message);
+    }
+}
+
+function getHealthyPipedInstances() {
+    return [...pipedInstances].sort((a, b) => {
+        const ha = pipedHealth.get(a) || { success: 0, fail: 0 };
+        const hb = pipedHealth.get(b) || { success: 0, fail: 0 };
+        return (hb.success - hb.fail * 2) - (ha.success - ha.fail * 2);
+    });
+}
+
+function markPiped(url, success) {
+    const h = pipedHealth.get(url) || { success: 0, fail: 0 };
+    if (success) h.success++;
+    else h.fail++;
+    if (h.fail > 10) { h.fail = Math.floor(h.fail / 2); h.success = Math.floor(h.success / 2); }
+    pipedHealth.set(url, h);
+}
+
+// ============================
 // Invidious Instance Pool
 // ============================
 let invidiousInstances = [
@@ -407,7 +459,17 @@ app.get('/api/stream/:id', async (req, res) => {
         }
     }
 
-    // ─── Strategy 2: Invidious proxy stream ───
+    // ─── Strategy 2: Piped proxy stream ───
+    if (!aborted && !res.headersSent) {
+        try {
+            const success = await streamViaPiped(videoId, quality, res);
+            if (success) return;
+        } catch (err) {
+            console.log(`  Piped stream failed: ${err.message}`);
+        }
+    }
+
+    // ─── Strategy 3: Invidious proxy stream ───
     if (!aborted && !res.headersSent) {
         try {
             const success = await streamViaInvidious(videoId, quality, res);
@@ -417,7 +479,7 @@ app.get('/api/stream/:id', async (req, res) => {
         }
     }
 
-    // ─── Strategy 3: yt-dlp get URL → server proxies it ───
+    // ─── Strategy 4: yt-dlp get URL → server proxies it ───
     if (!aborted && !res.headersSent) {
         try {
             const success = await streamViaYtDlpUrl(videoId, quality, res);
@@ -512,7 +574,67 @@ function streamViaYtDlp(videoId, quality, startTime, res, req) {
     });
 }
 
-// Strategy 2: Invidious video proxy
+// Strategy 2: Piped video proxy
+async function streamViaPiped(videoId, quality, res) {
+    await refreshPipedInstances();
+    const instances = getHealthyPipedInstances();
+
+    for (const instance of instances.slice(0, 4)) {
+        try {
+            console.log(`  Trying Piped: ${instance}`);
+            const data = await fetchJSON(`${instance}/streams/${videoId}`, 12000);
+
+            if (!data || (!data.videoStreams && !data.audioStreams)) {
+                throw new Error('No streams in response');
+            }
+
+            // Find a suitable video+audio stream or video-only stream
+            let streamUrl = null;
+
+            if (data.videoStreams && data.videoStreams.length > 0) {
+                // Filter for streams with audio (videoOnly === false)
+                let candidates = data.videoStreams.filter(s => !s.videoOnly && s.url);
+                
+                // Sort by quality preference
+                if (quality === 'low') {
+                    candidates.sort((a, b) => (a.bitrate || 0) - (b.bitrate || 0));
+                } else if (quality === 'high') {
+                    candidates.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+                } else {
+                    // medium: prefer 360p-480p range
+                    candidates.sort((a, b) => {
+                        const aQ = parseInt(a.quality) || 0;
+                        const bQ = parseInt(b.quality) || 0;
+                        return Math.abs(aQ - 480) - Math.abs(bQ - 480);
+                    });
+                }
+
+                if (candidates.length > 0) {
+                    streamUrl = candidates[0].url;
+                } else {
+                    // No combined streams, try any video stream
+                    const anyVideo = data.videoStreams.find(s => s.url);
+                    if (anyVideo) streamUrl = anyVideo.url;
+                }
+            }
+
+            if (!streamUrl) {
+                throw new Error('No suitable stream found');
+            }
+
+            console.log(`  Piped stream URL found, proxying...`);
+            await proxyStream(streamUrl, res, 30000);
+            markPiped(instance, true);
+            return true;
+        } catch (err) {
+            markPiped(instance, false);
+            console.log(`  Piped ${instance} failed: ${err.message}`);
+        }
+    }
+    return false;
+}
+
+// Strategy 3: Invidious video proxy
 async function streamViaInvidious(videoId, quality, res) {
     await refreshInvidiousInstances();
     const instances = getHealthyInstances();
@@ -846,7 +968,8 @@ async function start() {
         console.log('⚠️  Server will start with Invidious fallback only.');
     }
 
-    // Pre-refresh Invidious instances
+    // Pre-refresh instances
+    refreshPipedInstances().catch(() => {});
     refreshInvidiousInstances().catch(() => {});
 
     app.listen(PORT, '0.0.0.0', () => {
