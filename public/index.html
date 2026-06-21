@@ -58,7 +58,8 @@
         <section class="player-wrap" id="player-wrap" style="display:none">
             <div class="player-box">
                 <div class="video-frame" id="video-frame">
-                    <video id="vid" playsinline autoplay preload="auto"></video>
+                    <iframe id="yt-iframe" style="display:none" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+                    <video id="vid" playsinline autoplay preload="auto" style="display:none"></video>
                     <canvas id="cvs" style="display:none"></canvas>
                     
                     <!-- Custom Player Controls Overlay -->

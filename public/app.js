@@ -1,6 +1,11 @@
 /**
- * TeslaPlay v3 — Frontend with Multi-Source Fallback & Canvas Drive-Bypass
- * Connects to yt-dlp + Invidious powered backend
+ * TeslaPlay v4 — Frontend with YouTube Embed + Server Proxy Fallback
+ * 
+ * Primary: YouTube iframe embed (video streams directly from YouTube to browser)
+ * Fallback: Server-side proxy stream via /api/stream/:id
+ * 
+ * This solves the datacenter IP blocking issue because with iframe embed,
+ * the video flows directly from YouTube → user's Tesla browser.
  */
 (function () {
     'use strict';
@@ -13,10 +18,9 @@
         favs: load('tp_fav', []),
         hist: load('tp_his', []),
         driveMode: load('tp_dm', false),
-        startTime: 0,
-        videoDuration: 0,
+        playerMode: 'embed', // 'embed' or 'proxy'
         retryCount: 0,
-        maxRetries: 2,
+        maxRetries: 1,
     };
 
     /* ───── Helpers ───── */
@@ -25,25 +29,6 @@
     function load(k, d) { try { return JSON.parse(localStorage.getItem(k)) || d; } catch { return d; } }
     function save(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
     function isFav(id) { return S.favs.some(v => v.id === id); }
-
-    function formatTime(secs) {
-        if (isNaN(secs) || secs === Infinity || secs === null) return '0:00';
-        const m = Math.floor(secs / 60);
-        const s = Math.floor(secs % 60);
-        return `${m}:${s.toString().padStart(2, '0')}`;
-    }
-
-    function parseDuration(str) {
-        if (!str) return 0;
-        const parts = str.split(':').map(Number);
-        if (parts.some(isNaN)) return 0;
-        if (parts.length === 3) {
-            return parts[0] * 3600 + parts[1] * 60 + parts[2];
-        } else if (parts.length === 2) {
-            return parts[0] * 60 + parts[1];
-        }
-        return parts[0] || 0;
-    }
 
     function toast(msg, ok = true) {
         const t = document.createElement('div');
@@ -70,6 +55,7 @@
         grid: $('#grid'), favGrid: $('#fav-grid'), histGrid: $('#hist-grid'), recGrid: $('#rec-grid'),
         secTitle: $('#sec-title'),
         playerWrap: $('#player-wrap'), vid: $('#vid'), cvs: $('#cvs'), vidLoad: $('#vid-loading'),
+        ytIframe: $('#yt-iframe'),
         vidTitle: $('#vid-title'), vidChannel: $('#vid-channel'), vidViews: $('#vid-views'),
         favBtn: $('#fav-btn'), closeBtn: $('#close-btn'), recArea: $('#rec-area'),
         homeSec: $('#home-sec'), favSec: $('#fav-sec'), histSec: $('#hist-sec'),
@@ -171,78 +157,73 @@
         return r.json();
     }
 
-    /* ───── Canvas Drive-Bypass Mode Loop ───── */
-    let canvasLoopActive = false;
-    function renderCanvas() {
-        if (!canvasLoopActive) return;
+    /* ───── Playback: YouTube Embed (Primary) ───── */
+    function playViaEmbed(videoId) {
+        S.playerMode = 'embed';
         
-        if (S.driveMode && D.vid && !D.vid.paused && !D.vid.ended) {
-            if (D.vid.videoWidth && D.cvs.width !== D.vid.videoWidth) {
-                D.cvs.width = D.vid.videoWidth;
-                D.cvs.height = D.vid.videoHeight;
+        // Hide video element, show iframe
+        D.vid.style.display = 'none';
+        D.vid.pause();
+        D.vid.removeAttribute('src');
+        D.ytIframe.style.display = '';
+        
+        // Hide custom controls (YouTube iframe has its own)
+        D.customControls.style.display = 'none';
+        
+        // Build embed URL with autoplay
+        // Using youtube-nocookie.com for privacy and better compatibility
+        const embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=0`;
+        
+        D.ytIframe.src = embedUrl;
+        
+        // Hide loading after a short delay (iframe handles its own loading)
+        setTimeout(() => {
+            D.vidLoad.classList.add('hidden');
+        }, 1500);
+    }
+
+    /* ───── Playback: Server Proxy (Fallback) ───── */
+    function playViaProxy(videoId) {
+        S.playerMode = 'proxy';
+        
+        // Hide iframe, show video element
+        D.ytIframe.style.display = 'none';
+        D.ytIframe.removeAttribute('src');
+        D.vid.style.display = '';
+        
+        // Show custom controls for video element
+        D.customControls.style.display = '';
+        
+        const q = D.qualSel.value;
+        const streamUrl = `/api/stream/${videoId}?q=${q}`;
+        
+        D.vid.src = streamUrl;
+        D.vid.load();
+        
+        D.vid.oncanplay = () => {
+            D.vidLoad.classList.add('hidden');
+            D.vid.play().catch(() => {});
+        };
+        
+        D.vid.onerror = () => {
+            D.vidLoad.classList.add('hidden');
+            toast('Sunucu proxy başarısız — iframe moduna dönülüyor', false);
+            // Fall back to embed
+            playViaEmbed(videoId);
+        };
+        
+        // Safety timeout
+        setTimeout(() => {
+            if (!D.vidLoad.classList.contains('hidden')) {
+                D.vidLoad.classList.add('hidden');
             }
-            const ctx = D.cvs.getContext('2d');
-            ctx.drawImage(D.vid, 0, 0, D.cvs.width, D.cvs.height);
-        }
-        
-        requestAnimationFrame(renderCanvas);
+        }, 20000);
     }
 
-    function startCanvasLoop() {
-        if (canvasLoopActive) return;
-        canvasLoopActive = true;
-        renderCanvas();
-    }
-
-    function stopCanvasLoop() {
-        canvasLoopActive = false;
-    }
-
-    function updateDriveModeUI() {
-        D.driveBtn.classList.toggle('drive-on', S.driveMode);
-        D.videoFrame.classList.toggle('canvas-active', S.driveMode);
-        
-        if (S.driveMode && S.video) {
-            startCanvasLoop();
-        } else {
-            stopCanvasLoop();
-        }
-    }
-
-    function toggleDriveMode() {
-        S.driveMode = !S.driveMode;
-        save('tp_dm', S.driveMode);
-        updateDriveModeUI();
-        toast(S.driveMode ? 'Sürüş Modu Aktif (Video Canvas Üzerinde Oynatılıyor)' : 'Normal Mod Aktif');
-    }
-
-    /* ───── Loading State Messages ───── */
-    const loadingMessages = [
-        'Video yükleniyor...',
-        'Kaynaklar deneniyor...',
-        'Alternatif sunucu deneniyor...',
-        'Son deneme yapılıyor...',
-    ];
-
-    function updateLoadingMsg(msg) {
-        const el = D.vidLoadMsg;
-        if (el) el.textContent = msg;
-    }
-
-    /* ───── Playback ───── */
-    async function playVideo(v, startTime = 0) {
+    /* ───── Play Video (Main Entry Point) ───── */
+    async function playVideo(v) {
         S.video = v;
-        S.startTime = startTime;
         S.retryCount = 0;
-
-        // Establish total duration
-        if (v.durationSeconds) {
-            S.videoDuration = v.durationSeconds;
-        } else if (v.duration) {
-            S.videoDuration = parseDuration(v.duration);
-        } else {
-            S.videoDuration = 0;
-        }
 
         D.playerWrap.style.display = '';
         D.homeSec.style.display = 'none';
@@ -253,185 +234,102 @@
         D.vidChannel.textContent = v.channel || '';
         D.vidViews.textContent = v.views || '';
         D.vidLoad.classList.remove('hidden');
-        updateLoadingMsg(loadingMessages[0]);
+        if (D.vidLoadMsg) D.vidLoadMsg.textContent = 'Video yükleniyor...';
         syncPlayerFav();
 
-        if (startTime === 0) {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            addHist(v);
-        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        addHist(v);
 
-        loadStream(v, startTime);
+        // Primary strategy: YouTube iframe embed
+        // This sends video directly from YouTube to user's browser
+        // No datacenter IP blocking issue!
+        playViaEmbed(v.id);
 
-        updateDriveModeUI();
-
-        // Fetch full info in background
+        // Fetch full info in background for display
         try {
             const info = await apiInfo(v.id);
             if (info.title) D.vidTitle.textContent = info.title;
             if (info.channel) D.vidChannel.textContent = info.channel;
             if (info.views) D.vidViews.textContent = info.views;
-            if (info.durationSeconds) S.videoDuration = info.durationSeconds;
         } catch {}
     }
 
-    function loadStream(v, startTime) {
-        const q = D.qualSel.value;
-        const streamUrl = `/api/stream/${v.id}?q=${q}&t=${startTime}`;
-
-        D.vid.src = streamUrl;
-        D.vid.load();
-
-        D.vid.oncanplay = () => {
-            D.vidLoad.classList.add('hidden');
-            D.vid.play().catch(() => {});
-        };
-
-        D.vid.onerror = () => {
-            S.retryCount++;
-            if (S.retryCount <= S.maxRetries && S.video && S.video.id === v.id) {
-                // Auto-retry with a different quality or wait
-                console.log(`Video error, retry ${S.retryCount}/${S.maxRetries}`);
-                updateLoadingMsg(loadingMessages[Math.min(S.retryCount, loadingMessages.length - 1)]);
-                
-                // Wait a bit then retry
-                setTimeout(() => {
-                    if (S.video && S.video.id === v.id) {
-                        // Try lower quality on retry
-                        const qualities = ['high', 'medium', 'low'];
-                        const currentIdx = qualities.indexOf(q);
-                        const retryQ = qualities[Math.min(currentIdx + S.retryCount, qualities.length - 1)];
-                        
-                        const retryUrl = `/api/stream/${v.id}?q=${retryQ}&t=${startTime}&retry=${S.retryCount}`;
-                        D.vid.src = retryUrl;
-                        D.vid.load();
-                    }
-                }, 2000 * S.retryCount);
-            } else {
-                D.vidLoad.classList.add('hidden');
-                toast('Video yüklenemedi — farklı bir video deneyin', false);
-            }
-        };
-
-        // Timeout safety - longer for multi-source fallback
-        setTimeout(() => { if (!D.vidLoad.classList.contains('hidden')) D.vidLoad.classList.add('hidden'); }, 30000);
-    }
-
     function closePlayer() {
-        stopCanvasLoop();
+        // Clean up both players
         D.vid.pause();
         D.vid.removeAttribute('src');
         D.vid.load();
+        D.vid.style.display = 'none';
+        
+        D.ytIframe.removeAttribute('src');
+        D.ytIframe.style.display = 'none';
+        
+        D.customControls.style.display = '';
         D.playerWrap.style.display = 'none';
         S.video = null;
         showView(S.view);
     }
 
-    /* ───── Custom Controls Events & Synchronization ───── */
-    let controlsTimer;
-    let dragging = false;
+    /* ───── Custom Controls (for proxy mode only) ───── */
+    function setupCustomControls() {
+        // These controls only apply when using <video> element (proxy mode)
+        const playToggle = () => {
+            if (S.playerMode !== 'proxy') return;
+            if (D.vid.paused) D.vid.play();
+            else D.vid.pause();
+        };
 
-    function showControlsOverlay() {
-        D.customControls.classList.add('active');
-        clearTimeout(controlsTimer);
-        if (!D.vid.paused) {
-            controlsTimer = setTimeout(() => {
-                D.customControls.classList.remove('active');
-            }, 3000);
+        if (D.ctrlPlayCenter) D.ctrlPlayCenter.onclick = playToggle;
+        if (D.ctrlPlayBtn) D.ctrlPlayBtn.onclick = playToggle;
+
+        if (D.ctrlMuteBtn) {
+            D.ctrlMuteBtn.onclick = () => {
+                if (S.playerMode !== 'proxy') return;
+                D.vid.muted = !D.vid.muted;
+            };
+        }
+
+        if (D.vid) {
+            D.vid.addEventListener('play', syncControlsUI);
+            D.vid.addEventListener('pause', syncControlsUI);
+            D.vid.addEventListener('timeupdate', syncControlsUI);
+            D.vid.addEventListener('volumechange', syncControlsUI);
         }
     }
 
     function syncControlsUI() {
+        if (S.playerMode !== 'proxy') return;
         const isPaused = D.vid.paused;
         
         $$('.play-icon').forEach(el => el.classList.toggle('hidden', !isPaused));
         $$('.pause-icon').forEach(el => el.classList.toggle('hidden', isPaused));
-        D.ctrlPlayCenter.classList.toggle('hidden', !isPaused && !D.customControls.classList.contains('active'));
 
-        if (!dragging) {
-            const current = S.startTime + (D.vid.currentTime || 0);
-            const total = S.videoDuration || D.vid.duration || 0;
+        const current = D.vid.currentTime || 0;
+        const total = D.vid.duration || 0;
+        if (D.ctrlTime) {
             D.ctrlTime.textContent = `${formatTime(current)} / ${formatTime(total)}`;
-            
-            if (total > 0) {
-                const pct = (current / total) * 100;
-                D.ctrlProgCurrent.style.width = pct + '%';
-                D.ctrlProgHandle.style.left = pct + '%';
-            }
+        }
+        
+        if (total > 0 && D.ctrlProgCurrent) {
+            const pct = (current / total) * 100;
+            D.ctrlProgCurrent.style.width = pct + '%';
+            if (D.ctrlProgHandle) D.ctrlProgHandle.style.left = pct + '%';
         }
 
-        const isMuted = D.vid.muted;
-        $('.volume-on').classList.toggle('hidden', isMuted);
-        $('.volume-off').classList.toggle('hidden', !isMuted);
+        if (D.ctrlMuteBtn) {
+            const isMuted = D.vid.muted;
+            const volOn = D.ctrlMuteBtn.querySelector('.volume-on');
+            const volOff = D.ctrlMuteBtn.querySelector('.volume-off');
+            if (volOn) volOn.classList.toggle('hidden', isMuted);
+            if (volOff) volOff.classList.toggle('hidden', !isMuted);
+        }
     }
 
-    function setupCustomControls() {
-        const playToggle = () => {
-            if (D.vid.paused) {
-                D.vid.play();
-            } else {
-                D.vid.pause();
-            }
-            showControlsOverlay();
-        };
-
-        D.ctrlPlayCenter.onclick = playToggle;
-        D.ctrlPlayBtn.onclick = playToggle;
-
-        D.ctrlMuteBtn.onclick = () => {
-            D.vid.muted = !D.vid.muted;
-            syncControlsUI();
-            showControlsOverlay();
-        };
-
-        let lastRatio = 0;
-        const seek = (e) => {
-            const rect = D.ctrlProgBar.getBoundingClientRect();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            let ratio = (clientX - rect.left) / rect.width;
-            ratio = Math.max(0, Math.min(1, ratio));
-            lastRatio = ratio;
-            
-            D.ctrlProgCurrent.style.width = (ratio * 100) + '%';
-            D.ctrlProgHandle.style.left = (ratio * 100) + '%';
-            
-            const total = S.videoDuration || D.vid.duration || 0;
-            const current = ratio * total;
-            D.ctrlTime.textContent = `${formatTime(current)} / ${formatTime(total)}`;
-        };
-
-        D.ctrlProgContainer.onmousedown = (e) => { dragging = true; seek(e); };
-        D.ctrlProgContainer.ontouchstart = (e) => { dragging = true; seek(e); };
-
-        window.addEventListener('mousemove', (e) => { if (dragging) seek(e); });
-        window.addEventListener('touchmove', (e) => { if (dragging) seek(e); });
-        
-        const handleDragEnd = () => {
-            if (!dragging) return;
-            dragging = false;
-            if (S.video) {
-                const total = S.videoDuration || D.vid.duration || 0;
-                const seekTime = Math.round(lastRatio * total);
-                playVideo(S.video, seekTime);
-            }
-        };
-
-        window.addEventListener('mouseup', handleDragEnd);
-        window.addEventListener('touchend', handleDragEnd);
-
-        D.vid.addEventListener('play', syncControlsUI);
-        D.vid.addEventListener('pause', syncControlsUI);
-        D.vid.addEventListener('timeupdate', syncControlsUI);
-        D.vid.addEventListener('volumechange', syncControlsUI);
-        D.vid.addEventListener('durationchange', syncControlsUI);
-
-        D.videoFrame.addEventListener('mousemove', showControlsOverlay);
-        D.videoFrame.addEventListener('touchstart', showControlsOverlay);
-        D.videoFrame.addEventListener('click', (e) => {
-            if (e.target === D.vid || e.target === D.cvs || e.target === D.customControls) {
-                playToggle();
-            }
-        });
+    function formatTime(secs) {
+        if (isNaN(secs) || secs === Infinity || secs === null) return '0:00';
+        const m = Math.floor(secs / 60);
+        const s = Math.floor(secs % 60);
+        return `${m}:${s.toString().padStart(2, '0')}`;
     }
 
     /* ───── Search ───── */
@@ -530,16 +428,29 @@
             else document.exitFullscreen().catch(() => {});
         };
         
-        // Quality selector change
+        // Quality selector - only affects proxy mode
         D.qualSel.onchange = () => {
-            if (S.video) {
-                const current = S.startTime + (D.vid.currentTime || 0);
-                playVideo(S.video, Math.round(current));
+            if (S.video && S.playerMode === 'proxy') {
+                playViaProxy(S.video.id);
             }
         };
         
-        // Drive mode button
-        D.driveBtn.onclick = toggleDriveMode;
+        // Drive mode button - switch to proxy mode for canvas bypass
+        if (D.driveBtn) {
+            D.driveBtn.onclick = () => {
+                if (S.video && S.playerMode === 'embed') {
+                    // Switch to proxy mode for drive bypass
+                    toast('Sürüş modu için sunucu proxy deneniyor...', true);
+                    D.vidLoad.classList.remove('hidden');
+                    if (D.vidLoadMsg) D.vidLoadMsg.textContent = 'Sürüş modu etkinleştiriliyor...';
+                    playViaProxy(S.video.id);
+                } else if (S.video && S.playerMode === 'proxy') {
+                    // Switch back to embed mode
+                    playViaEmbed(S.video.id);
+                    toast('Normal mod — YouTube embed', true);
+                }
+            };
+        }
 
         document.onkeydown = e => {
             if (e.key === 'Escape' && S.video) closePlayer();
@@ -551,7 +462,6 @@
     function init() {
         bind();
         setupCustomControls();
-        updateDriveModeUI();
         loadCat('trending');
     }
 
