@@ -17,7 +17,6 @@
         video: null,
         favs: load('tp_fav', []),
         hist: load('tp_his', []),
-        driveMode: load('tp_dm', false),
         playerMode: 'embed', // 'embed' or 'proxy'
         retryCount: 0,
         maxRetries: 1,
@@ -54,7 +53,7 @@
         qualSel: $('#quality-sel'), fsBtn: $('#fs-btn'), logo: $('#logo'),
         grid: $('#grid'), favGrid: $('#fav-grid'), histGrid: $('#hist-grid'), recGrid: $('#rec-grid'),
         secTitle: $('#sec-title'),
-        playerWrap: $('#player-wrap'), vid: $('#vid'), cvs: $('#cvs'), vidLoad: $('#vid-loading'),
+        playerWrap: $('#player-wrap'), vid: $('#vid'), vidLoad: $('#vid-loading'),
         ytIframe: $('#yt-iframe'),
         vidTitle: $('#vid-title'), vidChannel: $('#vid-channel'), vidViews: $('#vid-views'),
         favBtn: $('#fav-btn'), closeBtn: $('#close-btn'), recArea: $('#rec-area'),
@@ -75,7 +74,6 @@
         ctrlProgCurrent: $('#ctrl-progress-current'),
         ctrlProgHandle: $('#ctrl-progress-handle'),
         ctrlMuteBtn: $('#ctrl-mute-btn'),
-        driveBtn: $('#drive-btn'),
     };
 
     /* ───── Card Builder ───── */
@@ -434,23 +432,7 @@
                 playViaProxy(S.video.id);
             }
         };
-        
-        // Drive mode button - switch to proxy mode for canvas bypass
-        if (D.driveBtn) {
-            D.driveBtn.onclick = () => {
-                if (S.video && S.playerMode === 'embed') {
-                    // Switch to proxy mode for drive bypass
-                    toast('Sürüş modu için sunucu proxy deneniyor...', true);
-                    D.vidLoad.classList.remove('hidden');
-                    if (D.vidLoadMsg) D.vidLoadMsg.textContent = 'Sürüş modu etkinleştiriliyor...';
-                    playViaProxy(S.video.id);
-                } else if (S.video && S.playerMode === 'proxy') {
-                    // Switch back to embed mode
-                    playViaEmbed(S.video.id);
-                    toast('Normal mod — YouTube embed', true);
-                }
-            };
-        }
+
 
         document.onkeydown = e => {
             if (e.key === 'Escape' && S.video) closePlayer();

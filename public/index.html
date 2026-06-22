@@ -60,7 +60,6 @@
                 <div class="video-frame" id="video-frame">
                     <iframe id="yt-iframe" style="display:none" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
                     <video id="vid" playsinline autoplay preload="auto" style="display:none"></video>
-                    <canvas id="cvs" style="display:none"></canvas>
                     
                     <!-- Custom Player Controls Overlay -->
                     <div class="custom-controls" id="custom-controls">
@@ -105,9 +104,6 @@
                         <p class="vid-meta"><span class="vid-channel" id="vid-channel"></span> <span class="dot">•</span> <span id="vid-views"></span></p>
                     </div>
                     <div class="player-detail-right">
-                        <button class="pill-btn" id="drive-btn" title="Sürüş Modu (Bypass)">
-                            <span class="drive-indicator"></span> Sürüş Modu
-                        </button>
                         <button class="pill-btn" id="fav-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> Favori</button>
                         <button class="pill-btn pill-close" id="close-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg> Kapat</button>
                     </div>
